@@ -1,15 +1,15 @@
 //! By convention, root.zig is the root source file when making a package.
 const std = @import("std");
+const mem = std.mem;
 const Io = std.Io;
 
-pub fn printAnotherMessage(writer: *Io.Writer) Io.Writer.Error!void {
-    try writer.print("Run `zig build test` to run the tests.\n", .{});
-}
+pub const network = @import("network.zig");
+// pub const game = @import("game.zig");
+// pub const sdl = @import("sdl3");
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+pub const SDLError = error{ UnknownError, RenderError };
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+pub fn convertSDLError(sdl_error: [*:0]const u8) SDLError!void {
+    std.log.info("Unknown error encountered: {s}", .{sdl_error});
+    return SDLError.UnknownError;
 }
