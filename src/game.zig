@@ -18,6 +18,9 @@ const GetError = sdl.SDL_GetError;
 const speed: f32 = 0.007;
 const width: f32 = 0.045;
 
+const window_width_c_int = 1920;
+const window_height_c_int = 1080;
+
 const Color = enum {
     red,
     green,
@@ -61,12 +64,12 @@ pub fn runGameLoop(io: Io) !void {
     var window: ?*sdl.SDL_Window = null;
     var renderer: ?*sdl.SDL_Renderer = null;
 
-    const initial_window_width = 640;
+    // const initial_window_width = 640;
 
     if (!sdl.SDL_CreateWindowAndRenderer(
         "examples/renderer/clear",
-        initial_window_width,
-        480,
+        window_width_c_int,
+        window_height_c_int,
         sdl.SDL_WINDOW_RESIZABLE | sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY,
         &window,
         &renderer,
@@ -98,8 +101,8 @@ pub fn runGameLoop(io: Io) !void {
     var ball_dx: f32 = speed;
     var ball_dy: f32 = speed;
 
-    var window_width_c_int: c_int = undefined;
-    var window_height_c_int: c_int = undefined;
+    // var window_width_c_int: c_int = undefined;
+    // var window_height_c_int: c_int = undefined;
 
     const ns_between_frames = std.time.ns_per_s / 60;
     var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
@@ -131,9 +134,9 @@ pub fn runGameLoop(io: Io) !void {
             p2_paddle_dy = speed;
         }
 
-        if (!sdl.SDL_GetWindowSizeInPixels(window, &window_width_c_int, &window_height_c_int)) {
-            std.debug.panic("{s}", .{sdl.SDL_GetError()});
-        }
+        // if (!sdl.SDL_GetWindowSizeInPixels(window, &window_width_c_int, &window_height_c_int)) {
+        //     std.debug.panic("{s}", .{sdl.SDL_GetError()});
+        // }
 
         const window_width: f32 = @floatFromInt(window_width_c_int);
         const window_height: f32 = @floatFromInt(window_height_c_int);
@@ -193,11 +196,8 @@ fn draw_objects(renderer: ?*sdl.SDL_Renderer, object_rectangles: *const ObjectRe
     const p2_paddle_rect = object_rectangles.p2_paddle_rect;
     const ball_rect = object_rectangles.ball_rect;
 
-    // clear screen
-    try setRenderColor(renderer, .black);
-    if (!sdl.SDL_RenderClear(renderer)) {
-        return convertSDLError(GetError());
-    }
+    // clear screen and draw background
+    try clearBackground(renderer);
 
     // draw objects
     try drawColorRectangle(renderer, p1_paddle_rect, .green);
@@ -221,6 +221,26 @@ fn drawRectangle(renderer: ?*Renderer, rectangle: *FRect) !void {
     )) {
         return convertSDLError(GetError());
     }
+}
+
+fn clearBackground(renderer: ?*Renderer) !void {
+    try setRenderColor(renderer, .black);
+    if (!sdl.SDL_RenderClear(renderer)) {
+        return convertSDLError(GetError());
+    }
+    const window_width_f32: f32 = @floatFromInt(window_width_c_int);
+    const window_height_f32: f32 = @floatFromInt(window_height_c_int);
+    const background_width: f32 = window_width_f32 - 20.0;
+    const background_height: f32 = window_height_f32 - 20.0;
+    const background_x = 10.0;
+    const background_y = 10.0;
+    const background_rectangle: FRect = .{
+        .w = background_width,
+        .h = background_height,
+        .x = background_x,
+        .y = background_y,
+    };
+    try drawColorRectangle(renderer, @constCast(&background_rectangle), .white);
 }
 
 fn setRenderColor(renderer: ?*Renderer, color: Color) !void {
