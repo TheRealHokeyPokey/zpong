@@ -1,19 +1,13 @@
 const std = @import("std");
 const Io = std.Io;
-// const net = std.Io.net;
-// const Socket = net.Socket;
 
 const pi = std.math.pi;
 const clock = Io.Clock.real;
 
 const sdl = @import("main.zig").sdl;
-// const sdl = zpong.sdl;
 
 const zpong = @import("zpong");
 const convertSDLError = zpong.convertSDLError;
-
-// const sdl = @import("sdl3");
-// const sdl = sdl;
 
 const FRect = sdl.SDL_FRect;
 const Renderer = sdl.SDL_Renderer;
@@ -39,12 +33,6 @@ const ObjectPosition = struct {
     x: f32,
     y: f32,
 };
-
-// const ObjectPositions = struct {
-//     p1_paddle_pos: ObjectPosition,
-//     p2_paddle_pos: ObjectPosition,
-//     ball_pos: ObjectPosition,
-// };
 
 const ObjectRectangles = struct {
     p1_paddle_rect: *FRect,
@@ -91,15 +79,8 @@ pub fn runGameLoop(io: Io) !void {
     defer sdl.SDL_DestroyWindow(window);
     defer sdl.SDL_DestroyRenderer(renderer);
 
-    // var p1_paddle: sdl.SDL_FRect = .{ .x = 0.0, .y = 0.0, .h = 300.0, .w = 50.0 };
     var p1_paddle_pos: ObjectPosition = undefined;
     var p2_paddle_pos: ObjectPosition = undefined;
-    // var ball_pos: ObjectPosition = undefined;
-    // const object_positions: ObjectPositions = .{
-    //     .p1_paddle_pos = &p1_paddle_pos,
-    //     .p2_paddle_pos = &p2_paddle_pos,
-    //     .ball_pos = &ball_pos,
-    // };
 
     var p1_paddle_rect: FRect = undefined;
     var p2_paddle_rect: FRect = undefined;
@@ -110,13 +91,10 @@ pub fn runGameLoop(io: Io) !void {
         .ball_rect = &ball_rect,
     };
 
-    // const p1_paddle_dx: f32 = 0.0;
     var p1_paddle_dy: f32 = 0.0;
 
-    // var p2_paddle: sdl.SDL_FRect = .{ .x = 0.0, .y = 0.0, .h = 300.0, .w = 50.0 };
     var p2_paddle_dy: f32 = 0.0;
 
-    // var ball: sdl.SDL_FRect = .{ .x = 0.0, .y = 0.0, .h = 50.0, .w = 50.0 };
     var ball_dx: f32 = speed;
     var ball_dy: f32 = speed;
 
@@ -163,27 +141,11 @@ pub fn runGameLoop(io: Io) !void {
         ball_rect.w = width * window_height;
         ball_rect.h = ball_rect.w;
 
-        // p1_paddle.w = width * window_height_f32;
-        // p1_paddle.h = 6 * width * window_height_f32;
-        //
-        // p1_paddle.x += p1_paddle_dx * window_height_f32;
-        // const next_p1_paddle_y = p1_paddle.y + (p1_paddle_dy * window_height_f32);
-        // const p1_paddle_y_limit = window_height_f32 - p1_paddle.h;
-        // p1_paddle.y = @max(@min(next_p1_paddle_y, p1_paddle_y_limit), 0.0);
-
         updatePaddlePosition(&p1_paddle_pos, p1_paddle_dy, window_height);
         updateP2PaddlePosition(&p2_paddle_pos, p2_paddle_dy, window_height, window_width);
 
         fillPaddleRect(p1_paddle_pos, window_height, &p1_paddle_rect);
         fillPaddleRect(p2_paddle_pos, window_height, &p2_paddle_rect);
-
-        // p2_paddle.w = width * window_height_f32;
-        // p2_paddle.h = 6 * width * window_height_f32;
-        //
-        // p2_paddle.x = window_width_f32 - p2_paddle.w;
-        // const next_p2_paddle_y = p2_paddle.y + (p2_paddle_dy * window_height_f32);
-        // const p2_paddle_y_limit = window_height_f32 - p2_paddle.h;
-        // p2_paddle.y = @max(@min(next_p2_paddle_y, p2_paddle_y_limit), 0.0);
 
         if (sdl.SDL_HasRectIntersectionFloat(
             @ptrCast(&ball_rect),
