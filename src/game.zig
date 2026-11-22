@@ -1,10 +1,15 @@
 const std = @import("std");
 const Io = std.Io;
+const net = Io.net;
 
 const pi = std.math.pi;
 const clock = Io.Clock.real;
 
 const sdl = @import("main.zig").sdl;
+
+const draw = @import("draw.zig");
+const fillPaddleRect = draw.fillPaddleRect;
+const drawObjects = draw.drawObjects;
 
 const zpong = @import("zpong");
 const convertSDLError = zpong.convertSDLError;
@@ -21,26 +26,23 @@ const width: f32 = 0.045;
 const window_width_c_int = 1920;
 const window_height_c_int = 1080;
 
-const Color = enum {
-    red,
-    green,
-    blue,
-    yellow,
-    purple,
-    orange,
-    white,
-    black,
-};
+const ns_between_frames = std.time.ns_per_s / 60;
 
-const ObjectPosition = struct {
+pub const ObjectPosition = struct {
     x: f32,
     y: f32,
 };
 
-const ObjectRectangles = struct {
+pub const ObjectRectangles = struct {
     p1_paddle_rect: *FRect,
     p2_paddle_rect: *FRect,
     ball_rect: *FRect,
+};
+
+pub const GameState = struct {
+    p1_paddle: FRect,
+    p2_paddle: FRect,
+    ball: FRect,
 };
 
 pub fn runGameLoop(io: Io) !void {
@@ -104,7 +106,6 @@ pub fn runGameLoop(io: Io) !void {
     // var window_width_c_int: c_int = undefined;
     // var window_height_c_int: c_int = undefined;
 
-    const ns_between_frames = std.time.ns_per_s / 60;
     var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
 
     var p1_score: u16 = 0;
@@ -187,78 +188,111 @@ pub fn runGameLoop(io: Io) !void {
         try Io.sleep(io, duration_to_wait, clock);
         frame_start = time_now;
 
-        try draw_objects(renderer, &object_rectangles);
+        try drawObjects(renderer, &object_rectangles);
     }
 }
 
-fn draw_objects(renderer: ?*sdl.SDL_Renderer, object_rectangles: *const ObjectRectangles) !void {
-    const p1_paddle_rect = object_rectangles.p1_paddle_rect;
-    const p2_paddle_rect = object_rectangles.p2_paddle_rect;
-    const ball_rect = object_rectangles.ball_rect;
+pub fn runClientLoop(io: Io) !void {
+    std.log.info(
+        "sizeOf FRect: {s}, bitSizeOf FRect: {s]",
+        .{ @sizeOf(FRect), @bitSizeOf(FRect) },
+    );
 
-    // clear screen and draw background
-    try clearBackground(renderer);
+    _ = sdl.SDL_SetAppMetadata(
+        "Example Renderer Clear",
+        "1.0",
+        "com.example.renderer-clear",
+    );
 
-    // draw objects
-    try drawColorRectangle(renderer, p1_paddle_rect, .green);
-    try drawColorRectangle(renderer, p2_paddle_rect, .blue);
-    try drawColorRectangle(renderer, ball_rect, .orange);
-
-    if (!sdl.SDL_RenderPresent(renderer)) {
-        return convertSDLError(GetError());
+    if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO)) {
+        std.debug.panic("SDL_Init failed: {s}\n", .{sdl.SDL_GetError()});
+        return sdl.SDL_APP_FAILURE;
     }
-}
+    defer sdl.SDL_Quit();
 
-fn drawColorRectangle(renderer: ?*Renderer, rectangle: *FRect, color: Color) !void {
-    try setRenderColor(renderer, color);
-    try drawRectangle(renderer, rectangle);
-}
+    std.debug.print(
+        "video driver: {s}\n",
+        .{sdl.SDL_GetCurrentVideoDriver() orelse @as([*c]const u8, "null")},
+    );
 
-fn drawRectangle(renderer: ?*Renderer, rectangle: *FRect) !void {
-    if (!RenderFillRect(
-        renderer,
-        @ptrCast(rectangle),
+    var window: ?*sdl.SDL_Window = null;
+    var renderer: ?*sdl.SDL_Renderer = null;
+
+    if (!sdl.SDL_CreateWindowAndRenderer(
+        "examples/renderer/clear",
+        window_width_c_int,
+        window_height_c_int,
+        sdl.SDL_WINDOW_RESIZABLE | sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY,
+        &window,
+        &renderer,
     )) {
-        return convertSDLError(GetError());
+        std.debug.panic(
+            "Couldn't create window/renderer: {s}\n",
+            .{sdl.SDL_GetError()},
+        );
     }
-}
+    defer sdl.SDL_DestroyWindow(window);
+    defer sdl.SDL_DestroyRenderer(renderer);
 
-fn clearBackground(renderer: ?*Renderer) !void {
-    try setRenderColor(renderer, .black);
-    if (!sdl.SDL_RenderClear(renderer)) {
-        return convertSDLError(GetError());
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
+    const stdout = &stdout_file_writer.interface;
+
+    var stdin_buffer: [1024]u8 = undefined;
+    var stdin_file_reader: Io.File.Reader = .init(.stdout(), io, &stdin_buffer);
+    const stdin = &stdin_file_reader.interface;
+
+    try stdout.print("Please enter host IPv4 address like \"address:port\": ", .{});
+    try stdout.flush();
+    const address_literal = try stdin.takeDelimiterInclusive('\n');
+    const address: net.IpAddress = try .parseLiteral(address_literal);
+
+    if (address.getPort() != 55555) {
+        @panic("Wrong port");
     }
-    const window_width_f32: f32 = @floatFromInt(window_width_c_int);
-    const window_height_f32: f32 = @floatFromInt(window_height_c_int);
-    const background_width: f32 = window_width_f32 - 20.0;
-    const background_height: f32 = window_height_f32 - 20.0;
-    const background_x = 10.0;
-    const background_y = 10.0;
-    const background_rectangle: FRect = .{
-        .w = background_width,
-        .h = background_height,
-        .x = background_x,
-        .y = background_y,
+
+    const stream: net.Stream = try address.connect(io, .{
+        .mode = .stream,
+        .protocol = .tcp,
+        .timeout = .{ .duration = .{ .raw = .fromSeconds(5) } },
+    });
+    defer stream.close(io);
+    std.log.info("Connected to host", .{});
+
+    var write_buffer: [1024]u8 = undefined;
+    var stream_writer = stream.writer(io, &write_buffer);
+    const writer: *Io.Writer = &stream_writer.interface;
+    _ = writer;
+
+    var read_buffer: [1024]u8 = undefined;
+    var stream_reader = stream.reader(io, &read_buffer);
+    const reader: *Io.Reader = &stream_reader.interface;
+
+    var p1_paddle_rect: FRect = undefined;
+    var p2_paddle_rect: FRect = undefined;
+    var ball_rect: FRect = .{ .h = 0.0, .w = 0.0, .x = 0.0, .y = 0.0 };
+    const object_rectangles: ObjectRectangles = .{
+        .p1_paddle_rect = &p1_paddle_rect,
+        .p2_paddle_rect = &p2_paddle_rect,
+        .ball_rect = &ball_rect,
     };
-    try drawColorRectangle(renderer, @constCast(&background_rectangle), .white);
-}
+    while (true) {
+        var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
 
-fn setRenderColor(renderer: ?*Renderer, color: Color) !void {
-    switch (color) {
-        .black => try setRenderColorFloat(renderer, 0.0, 0.0, 0.0, 1.0),
-        .blue => try setRenderColorFloat(renderer, 0.0, 0.0, 1.0, 1.0),
-        .green => try setRenderColorFloat(renderer, 0.0, 1.0, 0.0, 1.0),
-        .orange => try setRenderColorFloat(renderer, 1.0, 0.5, 0.0, 1.0),
-        .purple => try setRenderColorFloat(renderer, 0.5, 0.0, 0.5, 1.0),
-        .red => try setRenderColorFloat(renderer, 1.0, 0.0, 0.0, 1.0),
-        .white => try setRenderColorFloat(renderer, 1.0, 1.0, 1.0, 1.0),
-        .yellow => try setRenderColorFloat(renderer, 1.0, 1.0, 0.0, 1.0),
-    }
-}
+        const state_bytes: [8]u8 = try reader.takeArray(8);
+        const state: GameState = std.mem.bytesToValue(GameState, state_bytes);
+        p1_paddle_rect = @bitCast(state.p1_paddle);
+        p2_paddle_rect = @bitCast(state.p2_paddle);
+        ball_rect = @bitCast(state.ball);
 
-fn setRenderColorFloat(renderer: ?*Renderer, r: f32, g: f32, b: f32, a: f32) !void {
-    if (!SetRenderDrawColorFloat(renderer, r, g, b, a)) {
-        return convertSDLError(GetError());
+        const time_now: Io.Timestamp = .now(io, clock);
+        const frame_duration = frame_start.durationTo(time_now);
+        const ns_to_wait: i96 = @max(0, ns_between_frames - frame_duration.nanoseconds);
+        const duration_to_wait: Io.Duration = .{ .nanoseconds = ns_to_wait };
+        try Io.sleep(io, duration_to_wait, clock);
+        frame_start = time_now;
+
+        try drawObjects(renderer, &object_rectangles);
     }
 }
 
@@ -295,22 +329,4 @@ fn updateBallPosition(
 ) void {
     ball_pos.x += ball_dx * window_height;
     ball_pos.y += ball_dy * window_height;
-}
-
-fn fillPaddleRect(
-    paddle_pos: ObjectPosition,
-    window_height: f32,
-    paddle_rect: *FRect,
-) void {
-    const paddle_x = paddle_pos.x;
-    const paddle_y = paddle_pos.y;
-    const paddle_width = width * window_height;
-    const paddle_height = 6 * width * window_height;
-
-    paddle_rect.* = FRect{
-        .x = paddle_x,
-        .y = paddle_y,
-        .w = paddle_width,
-        .h = paddle_height,
-    };
 }
