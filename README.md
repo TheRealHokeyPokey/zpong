@@ -26,7 +26,7 @@ zig build -Doptimize=fast
 ./zig-out/bin/zpong --type=client --host-ip=X.X.X.X:55555
 ```
 
-## Compile options
+## Build options
 
 ```sh
 zig build --help
