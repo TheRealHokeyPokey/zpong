@@ -1,15 +1,41 @@
 # Readme
 
-## How to run (debug)
+This is an experimental multiplayer Pong game written in Zig, using SDL3. It can be played locally on a single machine, or over LAN.
+
+## Build (optimized)
 
 ```sh
-zig build run
+zig build -Doptimize=fast
 ```
 
-## How to run (optimized)
+## Run (local multiplayer)
 
 ```sh
-zig build -Doptimize=fast run
+./zig-out/bin/zpong
+```
+
+## Run (LAN host)
+
+```sh
+./zig-out/bin/zpong --type=host --host-port=55555 --no-localhost 
+```
+
+## Run (LAN client)
+
+```sh
+./zig-out/bin/zpong --type=client --host-ip=X.X.X.X:55555
+```
+
+## Compile options
+
+```sh
+zig build --help
+```
+
+## Run options
+
+```sh
+./zig-out/bin/zpong --help
 ```
 
 ## Supported Platforms
