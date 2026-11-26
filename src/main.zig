@@ -36,7 +36,7 @@ pub fn main(init: std.process.Init) !void {
     const stdout = &stdout_file_writer.interface;
 
     var config: Config = undefined;
-    config.type = .local_multiplayer;
+    config.game_type = .local_multiplayer;
     config.host_port = null;
     config.use_local_host = null;
     config.host_ip_address = null;
@@ -47,14 +47,7 @@ pub fn main(init: std.process.Init) !void {
         try stdout.print("Running with config: {}\n", .{config});
         try stdout.flush();
 
-        try game.runGame(io, config.type);
-
-        // switch (config.type) {
-        //     .local_multiplayer => try game.runLocalMultiplayer(io),
-        //     // .client => try game.runClientLoop(io, config),
-        //     // .host => try game.runBasicHostLoop(io, config),
-        //     else => {},
-        // }
+        try game.runGame(io, config);
     } else {
         std.log.err("Invalid config {}, exiting", .{config});
         @panic("");
@@ -62,7 +55,7 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn validateConfig(config: Config) bool {
-    switch (config.type) {
+    switch (config.game_type) {
         .local_multiplayer => {
             return (config.host_port == null and
                 config.use_local_host == null and
@@ -105,12 +98,12 @@ fn handleArg(arg: []const u8, stdout: *Io.Writer, config: *Config) !void {
     if (startsWith(u8, arg, "--type=")) {
         const type_value = arg[7..];
         if (eql(u8, type_value, "host")) {
-            config.type = .host;
+            config.game_type = .host;
             config.use_local_host = config.use_local_host orelse true;
         } else if (eql(u8, type_value, "client")) {
-            config.type = .client;
+            config.game_type = .client;
         } else if (eql(u8, type_value, "singleplayer")) {
-            config.type = .local_multiplayer;
+            config.game_type = .local_multiplayer;
         } else {
             std.log.err("unknown game type: {s}", .{type_value});
             try printHelp(stdout);

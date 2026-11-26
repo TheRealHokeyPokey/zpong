@@ -51,7 +51,7 @@ pub const GameType = enum {
 };
 
 pub const Config = struct {
-    type: GameType,
+    game_type: GameType,
     use_local_host: ?bool,
     host_port: ?u16,
     host_ip_address: ?net.IpAddress,
@@ -95,7 +95,7 @@ pub const ObjectRectangles = struct {
     ball: *FRect,
 };
 
-pub fn runGame(io: Io, game_type: GameType) !void {
+pub fn runGame(io: Io, config: Config) !void {
     _ = sdl.SDL_SetAppMetadata(
         "Example Renderer Clear",
         "1.0",
@@ -171,9 +171,10 @@ pub fn runGame(io: Io, game_type: GameType) !void {
             .{sdl.SDL_GetError()},
         );
     }
-
-    if (game_type == .local_multiplayer) {
-        try runLocal(io, &renderer);
+    switch (config.game_type) {
+        .local_multiplayer => try runLocal(io, &renderer),
+        .host => try runHost(io, &renderer, config),
+        else => {},
     }
 }
 
@@ -269,6 +270,145 @@ fn runLocal(io: Io, renderer_ptr: *?*sdl.SDL_Renderer) !void {
 
         ball_rect.x += ball_dx * window_height_logical;
         ball_rect.y += ball_dy * window_height_logical;
+
+        const time_now: Io.Timestamp = .now(io, clock);
+        const frame_duration = frame_start.durationTo(time_now);
+        const ns_to_wait: i96 = @max(
+            0,
+            ns_between_frames - frame_duration.nanoseconds,
+        );
+        const duration_to_wait: Io.Duration = .{ .nanoseconds = ns_to_wait };
+        try Io.sleep(io, duration_to_wait, clock);
+        frame_start = time_now;
+
+        try drawObjects(renderer, &game_state);
+    }
+}
+
+fn runHost(io: Io, renderer_ptr: *?*sdl.SDL_Renderer, config: Config) !void {
+    const renderer = renderer_ptr.*;
+
+    const paddle_y_initial: f32 = (window_height_logical - paddle_height) / 2.0;
+    var p1_paddle_rect: FRect = .{
+        .x = 0.0,
+        .y = paddle_y_initial,
+        .h = paddle_height,
+        .w = paddle_width,
+    };
+    const p2_paddle_x: f32 = window_width_logical - paddle_width;
+    var p2_paddle_rect: FRect = .{
+        .x = p2_paddle_x,
+        .y = paddle_y_initial,
+        .h = paddle_height,
+        .w = paddle_width,
+    };
+    var ball_rect: FRect = .{
+        .x = (window_width_logical - ball_width) / 2.0,
+        .y = (window_height_logical - ball_width) / 2.0,
+        .h = ball_width,
+        .w = ball_width,
+    };
+    const game_state: ObjectRectangles = .{
+        .p1_paddle = &p1_paddle_rect,
+        .p2_paddle = &p2_paddle_rect,
+        .ball = &ball_rect,
+    };
+
+    var ball_dx: f32 = speed;
+    var ball_dy: f32 = speed;
+
+    var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
+
+    var scores: Scores = .{
+        .p1 = 0,
+        .p2 = 0,
+    };
+
+    var server: std.Io.net.Server = undefined;
+    try getServer(io, config, &server);
+    defer server.deinit(io);
+
+    const stream = try server.accept(io);
+    defer stream.close(io);
+    std.log.info("Client connected", .{});
+
+    var write_buffer: [1024]u8 = undefined;
+    var stream_writer = stream.writer(io, &write_buffer);
+    const writer: *Io.Writer = &stream_writer.interface;
+
+    var read_buffer: [1024]u8 = undefined;
+    var stream_reader = stream.reader(io, &read_buffer);
+    const reader: *Io.Reader = &stream_reader.interface;
+
+    var object_positions: ObjectPositions = .{
+        .p1_paddle_position = objectRectToPosition(p1_paddle_rect),
+        .p2_paddle_position = objectRectToPosition(p2_paddle_rect),
+        .ball_position = objectRectToPosition(ball_rect),
+    };
+    try writer.writeStruct(object_positions, .big);
+    try writer.flush();
+
+    while (true) {
+        var event: sdl.SDL_Event = undefined;
+        _ = sdl.SDL_PollEvent(&event);
+
+        if (event.type == sdl.SDL_EVENT_QUIT) {
+            std.process.cleanExit(io);
+            return;
+        }
+
+        const p1_move = getPlayerMove(.player_1);
+        const p1_paddle_dy = getPaddleVelocityFromMove(p1_move);
+
+        const p2_move = getClientMove(reader);
+        const p2_paddle_dy = getPaddleVelocityFromMove(p2_move);
+
+        updatePaddle(&p1_paddle_rect, p1_paddle_dy);
+        updatePaddle(&p2_paddle_rect, p2_paddle_dy);
+
+        if (sdl.SDL_HasRectIntersectionFloat(
+            @ptrCast(&ball_rect),
+            @ptrCast(&p1_paddle_rect),
+        )) {
+            ball_dx = speed;
+        } else if (sdl.SDL_HasRectIntersectionFloat(
+            @ptrCast(&ball_rect),
+            @ptrCast(&p2_paddle_rect),
+        )) {
+            ball_dx = -speed;
+        } else {
+            if (ball_rect.x + ball_rect.w > window_width_logical) {
+                ball_dx = -@abs(ball_dx);
+                scores.p1 += 1;
+                std.log.info(
+                    "P2 scored. P1 score: {}, P2 score: {}",
+                    .{ scores.p1, scores.p2 },
+                );
+            } else if (ball_rect.x <= 0) {
+                ball_dx = @abs(ball_dx);
+                scores.p2 += 1;
+                std.log.info(
+                    "P1 scored. P1 score: {}, P2 score: {}",
+                    .{ scores.p1, scores.p2 },
+                );
+            }
+        }
+        if (ball_rect.y + ball_rect.h > window_height_logical) {
+            ball_dy = -@abs(ball_dy);
+        } else if (ball_rect.y <= 0) {
+            ball_dy = @abs(ball_dy);
+        }
+
+        ball_rect.x += ball_dx * window_height_logical;
+        ball_rect.y += ball_dy * window_height_logical;
+
+        object_positions = .{
+            .p1_paddle_position = objectRectToPosition(p1_paddle_rect),
+            .p2_paddle_position = objectRectToPosition(p2_paddle_rect),
+            .ball_position = objectRectToPosition(ball_rect),
+        };
+        try writer.writeStruct(object_positions, .big);
+        try writer.flush();
 
         const time_now: Io.Timestamp = .now(io, clock);
         const frame_duration = frame_start.durationTo(time_now);
@@ -584,6 +724,51 @@ fn runLocal(io: Io, renderer_ptr: *?*sdl.SDL_Renderer) !void {
 //         a_future = io.async(getState2, .{ reader, .big });
 //     }
 // }
+fn getServer(io: Io, config: Config, server: *std.Io.net.Server) !void {
+    const address = blk: {
+        if (config.use_local_host.?) {
+            break :blk try Io.net.IpAddress.parseIp4(
+                "127.0.0.1",
+                config.host_port.?,
+            );
+        } else {
+            break :blk try Io.net.IpAddress.parseIp4(
+                "0.0.0.0",
+                config.host_port.?,
+            );
+        }
+    };
+    const connect_options: Io.net.IpAddress.ListenOptions = .{};
+
+    std.log.info(
+        "Server waiting for connection on {f}, port {}",
+        .{ address.ip4, address.getPort() },
+    );
+
+    server.* = try Io.net.IpAddress.listen(
+        &address,
+        io,
+        connect_options,
+    );
+    // defer server.deinit(io);
+    // std.log.info("Server running, waiting for client to connect", .{});
+
+    // blocks until a client connects
+    // stream.* = try server.accept(io);
+    // defer stream.close(io);
+    // std.log.info("Client connected", .{});
+
+    // var write_buffer: [1024]u8 = undefined;
+    // var stream_writer = stream.writer(io, &write_buffer);
+    // const writer: *Io.Writer = &stream_writer.interface;
+    //
+    // var read_buffer: [1024]u8 = undefined;
+    // var stream_reader = stream.reader(io, &read_buffer);
+    // const reader: *Io.Reader = &stream_reader.interface;
+    //
+    // var a_future = io.async(getClientMove, .{reader});
+    // defer _ = a_future.cancel(io) catch {};
+}
 
 fn getState(io: Io, stream: net.Stream, endian: std.lang.Endian) !ObjectRectangles {
     var read_buffer: [1024]u8 = undefined;
@@ -653,4 +838,11 @@ fn updateBallPosition(
 ) void {
     ball_pos.x += ball_dx * window_height;
     ball_pos.y += ball_dy * window_height;
+}
+
+fn objectRectToPosition(object_rect: FRect) ObjectPosition {
+    return .{
+        .x = object_rect.x,
+        .y = object_rect.y,
+    };
 }
