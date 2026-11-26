@@ -2,6 +2,8 @@ const std = @import("std");
 const Io = std.Io;
 const net = Io.net;
 
+const assert = std.debug.assert;
+
 const pi = std.math.pi;
 const clock = Io.Clock.real;
 
@@ -30,8 +32,11 @@ const scancode_down = sdl.SDL_SCANCODE_DOWN;
 const speed: f32 = 0.007;
 const width: f32 = 0.045;
 
-const window_width_c_int = 1920;
-const window_height_c_int = 1080;
+const window_width_initial: c_int = 960;
+const window_height_initial: c_int = 540;
+
+const window_width_logical: u16 = 1920;
+const window_height_logical: u16 = 1080;
 
 const ns_between_frames = std.time.ns_per_s / 60;
 
@@ -70,12 +75,6 @@ pub const ObjectRectangles = struct {
     ball_rect: *FRect,
 };
 
-// pub const GameState = struct {
-//     p1_paddle: FRect,
-//     p2_paddle: FRect,
-//     ball: FRect,
-// };
-
 const GameState = extern struct {
     p1_paddle: FRect,
     p2_paddle: FRect,
@@ -103,12 +102,10 @@ pub fn runLocalMultiplayer(io: Io) !void {
     var window: ?*sdl.SDL_Window = null;
     var renderer: ?*sdl.SDL_Renderer = null;
 
-    // const initial_window_width = 640;
-
     if (!sdl.SDL_CreateWindowAndRenderer(
         "examples/renderer/clear",
-        window_width_c_int,
-        window_height_c_int,
+        window_width_initial,
+        window_height_initial,
         sdl.SDL_WINDOW_RESIZABLE | sdl.SDL_WINDOW_HIGH_PIXEL_DENSITY,
         &window,
         &renderer,
@@ -120,6 +117,41 @@ pub fn runLocalMultiplayer(io: Io) !void {
     }
     defer sdl.SDL_DestroyWindow(window);
     defer sdl.SDL_DestroyRenderer(renderer);
+
+    var display_width: c_int = undefined;
+    var display_height: c_int = undefined;
+
+    if (!sdl.SDL_GetRenderOutputSize(renderer, &display_width, &display_height)) {
+        std.debug.panic(
+            "Couldn't get render output size: {s}\n",
+            .{sdl.SDL_GetError()},
+        );
+    }
+
+    if (!sdl.SDL_SetWindowSize(
+        window,
+        display_width,
+        display_height,
+    )) {
+        std.debug.panic(
+            "Couldn't set window size: {s}\n",
+            .{sdl.SDL_GetError()},
+        );
+    }
+
+    if (renderer) |rend| {
+        if (!sdl.SDL_SetRenderLogicalPresentation(
+            rend,
+            window_width_logical,
+            window_height_logical,
+            sdl.SDL_LOGICAL_PRESENTATION_LETTERBOX,
+        )) {
+            std.debug.panic(
+                "Couldn't set logical presentation: {s}\n",
+                .{sdl.SDL_GetError()},
+            );
+        }
+    }
 
     var p1_paddle_pos: ObjectPosition = undefined;
     var p2_paddle_pos: ObjectPosition = undefined;
@@ -135,9 +167,6 @@ pub fn runLocalMultiplayer(io: Io) !void {
 
     var ball_dx: f32 = speed;
     var ball_dy: f32 = speed;
-
-    // var window_width_c_int: c_int = undefined;
-    // var window_height_c_int: c_int = undefined;
 
     var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
 
@@ -159,21 +188,14 @@ pub fn runLocalMultiplayer(io: Io) !void {
         const p2_move = getPlayerMove(.player_2);
         const p2_paddle_dy = getPaddleVelocityFromMove(p2_move);
 
-        // if (!sdl.SDL_GetWindowSizeInPixels(window, &window_width_c_int, &window_height_c_int)) {
-        //     std.debug.panic("{s}", .{sdl.SDL_GetError()});
-        // }
-
-        const window_width: f32 = @floatFromInt(window_width_c_int);
-        const window_height: f32 = @floatFromInt(window_height_c_int);
-
-        ball_rect.w = width * window_height;
+        ball_rect.w = width * window_height_logical;
         ball_rect.h = ball_rect.w;
 
-        updatePaddlePosition(&p1_paddle_pos, p1_paddle_dy, window_height);
-        updateP2PaddlePosition(&p2_paddle_pos, p2_paddle_dy, window_height, window_width);
+        updatePaddlePosition(&p1_paddle_pos, p1_paddle_dy, window_height_logical);
+        updateP2PaddlePosition(&p2_paddle_pos, p2_paddle_dy, window_height_logical, window_width_logical);
 
-        fillPaddleRect(p1_paddle_pos, window_height, &p1_paddle_rect);
-        fillPaddleRect(p2_paddle_pos, window_height, &p2_paddle_rect);
+        fillPaddleRect(p1_paddle_pos, window_height_logical, &p1_paddle_rect);
+        fillPaddleRect(p2_paddle_pos, window_height_logical, &p2_paddle_rect);
 
         if (sdl.SDL_HasRectIntersectionFloat(
             @ptrCast(&ball_rect),
@@ -186,7 +208,7 @@ pub fn runLocalMultiplayer(io: Io) !void {
         )) {
             ball_dx = -speed;
         } else {
-            if (ball_rect.x + ball_rect.w > window_width) {
+            if (ball_rect.x + ball_rect.w > window_width_logical) {
                 ball_dx = -@abs(ball_dx);
                 p1_score += 1;
                 std.log.info("P2 scored. P1 score: {}, P2 score: {}", .{ p1_score, p2_score });
@@ -196,14 +218,14 @@ pub fn runLocalMultiplayer(io: Io) !void {
                 std.log.info("P1 scored. P1 score: {}, P2 score: {}", .{ p1_score, p2_score });
             }
         }
-        if (ball_rect.y + ball_rect.h > window_height) {
+        if (ball_rect.y + ball_rect.h > window_height_logical) {
             ball_dy = -@abs(ball_dy);
         } else if (ball_rect.y <= 0) {
             ball_dy = @abs(ball_dy);
         }
 
-        ball_rect.x += ball_dx * window_height;
-        ball_rect.y += ball_dy * window_height;
+        ball_rect.x += ball_dx * window_height_logical;
+        ball_rect.y += ball_dy * window_height_logical;
 
         const time_now: Io.Timestamp = .now(io, clock);
         const frame_duration = frame_start.durationTo(time_now);
@@ -217,6 +239,8 @@ pub fn runLocalMultiplayer(io: Io) !void {
 }
 
 pub fn runBasicHostLoop(io: Io, config: Config) !void {
+    const window_width_c_int = 1920;
+    const window_height_c_int = 1080;
     _ = sdl.SDL_SetAppMetadata(
         "ZPong Host",
         "0.0",
@@ -283,8 +307,9 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
             break :blk try Io.net.IpAddress.parseIp4("0.0.0.0", config.host_port.?);
         }
     };
-    const address_ptr = &address;
     const connect_options: Io.net.IpAddress.ListenOptions = .{};
+
+    // const udp_socket = try address.bind(io, .{ .protocol = .udp });
 
     std.log.info(
         "Server waiting for connection on {f}, port {}",
@@ -292,7 +317,7 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
     );
 
     var server: Io.net.Server = try Io.net.IpAddress.listen(
-        address_ptr,
+        &address,
         io,
         connect_options,
     );
@@ -327,6 +352,7 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
             return;
         }
 
+        // udp_socket.receiveTimeout(io, read_buffer, .{ .duration = .{ .clock =  } })
         const p1_move = getPlayerMove(.player_1);
         const p2_move = try a_future.await(io);
 
@@ -395,6 +421,8 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
 }
 
 pub fn runClientLoop(io: Io, config: Config) !void {
+    const window_width_c_int = 1920;
+    const window_height_c_int = 1080;
     _ = sdl.SDL_SetAppMetadata(
         "ZPong Client",
         "0.0",
