@@ -42,7 +42,7 @@ pub fn drawObjects(renderer: ?*sdl.SDL_Renderer, object_rectangles: *const Objec
     const ball_rect = object_rectangles.ball_rect;
 
     // clear screen and draw background
-    try clearBackground(renderer);
+    try drawBackground(renderer);
 
     // draw objects
     try drawColorRectangle(renderer, p1_paddle_rect, .green);
@@ -68,24 +68,28 @@ fn drawRectangle(renderer: ?*Renderer, rectangle: *FRect) !void {
     }
 }
 
-fn clearBackground(renderer: ?*Renderer) !void {
+fn drawBackground(renderer: ?*Renderer) !void {
     try setRenderColor(renderer, .black);
     if (!sdl.SDL_RenderClear(renderer)) {
         return convertSDLError(GetError());
     }
     const window_width_f32: f32 = @floatFromInt(window_width_c_int);
     const window_height_f32: f32 = @floatFromInt(window_height_c_int);
-    const background_width: f32 = window_width_f32 - 20.0;
-    const background_height: f32 = window_height_f32 - 20.0;
-    const background_x = 10.0;
-    const background_y = 10.0;
     const background_rectangle: FRect = .{
-        .w = background_width,
-        .h = background_height,
-        .x = background_x,
-        .y = background_y,
+        .w = window_width_f32,
+        .h = window_height_f32,
+        .x = 0,
+        .y = 0,
     };
     try drawColorRectangle(renderer, @constCast(&background_rectangle), .white);
+    const center_line_width = window_width_f32 / 80.0;
+    const center_line_rect: FRect = .{
+        .w = center_line_width,
+        .h = window_height_f32,
+        .x = (window_width_f32 - center_line_width) / 2.0,
+        .y = 0,
+    };
+    try drawColorRectangle(renderer, @constCast(&center_line_rect), .black);
 }
 
 fn setRenderColor(renderer: ?*Renderer, color: Color) !void {

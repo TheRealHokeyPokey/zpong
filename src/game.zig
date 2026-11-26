@@ -115,42 +115,47 @@ pub fn runLocalMultiplayer(io: Io) !void {
             .{sdl.SDL_GetError()},
         );
     }
+
     defer sdl.SDL_DestroyWindow(window);
     defer sdl.SDL_DestroyRenderer(renderer);
 
-    var display_width: c_int = undefined;
-    var display_height: c_int = undefined;
+    {
+        var display_width: c_int = undefined;
+        var display_height: c_int = undefined;
 
-    if (!sdl.SDL_GetRenderOutputSize(renderer, &display_width, &display_height)) {
-        std.debug.panic(
-            "Couldn't get render output size: {s}\n",
-            .{sdl.SDL_GetError()},
-        );
-    }
-
-    if (!sdl.SDL_SetWindowSize(
-        window,
-        display_width,
-        display_height,
-    )) {
-        std.debug.panic(
-            "Couldn't set window size: {s}\n",
-            .{sdl.SDL_GetError()},
-        );
-    }
-
-    if (renderer) |rend| {
-        if (!sdl.SDL_SetRenderLogicalPresentation(
-            rend,
-            window_width_logical,
-            window_height_logical,
-            sdl.SDL_LOGICAL_PRESENTATION_LETTERBOX,
+        if (!sdl.SDL_GetRenderOutputSize(
+            renderer,
+            &display_width,
+            &display_height,
         )) {
             std.debug.panic(
-                "Couldn't set logical presentation: {s}\n",
+                "Couldn't get render output size: {s}\n",
                 .{sdl.SDL_GetError()},
             );
         }
+
+        if (!sdl.SDL_SetWindowSize(
+            window,
+            display_width,
+            display_height,
+        )) {
+            std.debug.panic(
+                "Couldn't set window size: {s}\n",
+                .{sdl.SDL_GetError()},
+            );
+        }
+    }
+
+    if (!sdl.SDL_SetRenderLogicalPresentation(
+        renderer,
+        window_width_logical,
+        window_height_logical,
+        sdl.SDL_LOGICAL_PRESENTATION_LETTERBOX,
+    )) {
+        std.debug.panic(
+            "Couldn't set logical presentation: {s}\n",
+            .{sdl.SDL_GetError()},
+        );
     }
 
     var p1_paddle_pos: ObjectPosition = undefined;
@@ -191,8 +196,17 @@ pub fn runLocalMultiplayer(io: Io) !void {
         ball_rect.w = width * window_height_logical;
         ball_rect.h = ball_rect.w;
 
-        updatePaddlePosition(&p1_paddle_pos, p1_paddle_dy, window_height_logical);
-        updateP2PaddlePosition(&p2_paddle_pos, p2_paddle_dy, window_height_logical, window_width_logical);
+        updatePaddlePosition(
+            &p1_paddle_pos,
+            p1_paddle_dy,
+            window_height_logical,
+        );
+        updateP2PaddlePosition(
+            &p2_paddle_pos,
+            p2_paddle_dy,
+            window_height_logical,
+            window_width_logical,
+        );
 
         fillPaddleRect(p1_paddle_pos, window_height_logical, &p1_paddle_rect);
         fillPaddleRect(p2_paddle_pos, window_height_logical, &p2_paddle_rect);
@@ -211,11 +225,17 @@ pub fn runLocalMultiplayer(io: Io) !void {
             if (ball_rect.x + ball_rect.w > window_width_logical) {
                 ball_dx = -@abs(ball_dx);
                 p1_score += 1;
-                std.log.info("P2 scored. P1 score: {}, P2 score: {}", .{ p1_score, p2_score });
+                std.log.info(
+                    "P2 scored. P1 score: {}, P2 score: {}",
+                    .{ p1_score, p2_score },
+                );
             } else if (ball_rect.x <= 0) {
                 ball_dx = @abs(ball_dx);
                 p2_score += 1;
-                std.log.info("P1 scored. P1 score: {}, P2 score: {}", .{ p1_score, p2_score });
+                std.log.info(
+                    "P1 scored. P1 score: {}, P2 score: {}",
+                    .{ p1_score, p2_score },
+                );
             }
         }
         if (ball_rect.y + ball_rect.h > window_height_logical) {
@@ -229,7 +249,10 @@ pub fn runLocalMultiplayer(io: Io) !void {
 
         const time_now: Io.Timestamp = .now(io, clock);
         const frame_duration = frame_start.durationTo(time_now);
-        const ns_to_wait: i96 = @max(0, ns_between_frames - frame_duration.nanoseconds);
+        const ns_to_wait: i96 = @max(
+            0,
+            ns_between_frames - frame_duration.nanoseconds,
+        );
         const duration_to_wait: Io.Duration = .{ .nanoseconds = ns_to_wait };
         try Io.sleep(io, duration_to_wait, clock);
         frame_start = time_now;
@@ -292,9 +315,6 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
     var ball_dx: f32 = speed;
     var ball_dy: f32 = speed;
 
-    // var window_width_c_int: c_int = undefined;
-    // var window_height_c_int: c_int = undefined;
-
     var frame_start: Io.Timestamp = std.Io.Clock.now(.real, io);
 
     var p1_score: u16 = 0;
@@ -302,9 +322,15 @@ pub fn runBasicHostLoop(io: Io, config: Config) !void {
 
     const address = blk: {
         if (config.use_local_host.?) {
-            break :blk try Io.net.IpAddress.parseIp4("127.0.0.1", config.host_port.?);
+            break :blk try Io.net.IpAddress.parseIp4(
+                "127.0.0.1",
+                config.host_port.?,
+            );
         } else {
-            break :blk try Io.net.IpAddress.parseIp4("0.0.0.0", config.host_port.?);
+            break :blk try Io.net.IpAddress.parseIp4(
+                "0.0.0.0",
+                config.host_port.?,
+            );
         }
     };
     const connect_options: Io.net.IpAddress.ListenOptions = .{};
