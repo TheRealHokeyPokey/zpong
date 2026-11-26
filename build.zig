@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    const sdk = b.option([]const u8, "sdk", "Absolute path to MacOSX.sdk");
+    // const sdk = b.option([]const u8, "sdk", "Absolute path to MacOSX.sdk");
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -91,43 +91,43 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("sdl3", sdl.module("sdl3"));
 
-    // const mods = [_]*std.Build.Module{ exe.root_module, sdl.module("sdl3") };
-    if (target.result.os.tag == .macos) {
-        const s = sdk orelse @panic("pass -Dsdk=/abs/path/to/MacOSX.sdk when targeting macOS");
-
-        // Apply to every module that compiles/links Apple code:
-        // your exe's root module AND the SDL (or similar) library's module.
-        // for (mods) |m| {
-        //     m.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/usr/include", .{s}) });
-        //     m.addSystemFrameworkPath(.{ .cwd_relative = b.fmt("{s}/System/Library/Frameworks", .{s}) });
-        //     m.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/usr/lib", .{s}) });
-        // }
-        sdl.module("sdl3").addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/usr/include", .{s}) });
-        sdl.module("sdl3").addSystemFrameworkPath(.{ .cwd_relative = b.fmt("{s}/System/Library/Frameworks", .{s}) });
-        sdl.module("sdl3").addLibraryPath(.{ .cwd_relative = b.fmt("{s}/usr/lib", .{s}) });
-        // sdl.module("sdl3").addSystemIncludePath(b.fmt("{s}/usr/include", .{s}));
-        // sdl.module("sdl3").addSystemFrameworkPath(b.fmt("{s}/System/Library/Frameworks", .{s}));
-        // sdl.module("sdl3").addLibraryPath(b.fmt("{s}/usr/lib", .{s}));
-
-        sdl.module("sdl3").linkFramework("Cocoa", .{});
-        sdl.module("sdl3").linkFramework("IOKit", .{});
-        sdl.module("sdl3").linkFramework("ForceFeedback", .{});
-        sdl.module("sdl3").linkFramework("CoreVideo", .{});
-        sdl.module("sdl3").linkFramework("CoreAudio", .{});
-        sdl.module("sdl3").linkFramework("CoreHaptics", .{});
-        sdl.module("sdl3").linkFramework("CoreFoundation", .{});
-        sdl.module("sdl3").linkFramework("CoreMedia", .{});
-        sdl.module("sdl3").linkFramework("CoreGraphics", .{});
-        sdl.module("sdl3").linkFramework("Carbon", .{});
-        sdl.module("sdl3").linkFramework("Metal", .{});
-        sdl.module("sdl3").linkFramework("QuartzCore", .{});
-        sdl.module("sdl3").linkFramework("AudioToolbox", .{});
-        sdl.module("sdl3").linkFramework("AVFoundation", .{});
-        sdl.module("sdl3").linkFramework("Foundation", .{});
-        sdl.module("sdl3").linkFramework("GameController", .{});
-        sdl.module("sdl3").linkFramework("CoreBluetooth", .{});
-        sdl.module("sdl3").linkFramework("UniformTypeIdentifiers", .{});
-    }
+    // // const mods = [_]*std.Build.Module{ exe.root_module, sdl.module("sdl3") };
+    // if (target.result.os.tag == .macos) {
+    //     const s = sdk orelse @panic("pass -Dsdk=/abs/path/to/MacOSX.sdk when targeting macOS");
+    //
+    //     // Apply to every module that compiles/links Apple code:
+    //     // your exe's root module AND the SDL (or similar) library's module.
+    //     // for (mods) |m| {
+    //     //     m.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/usr/include", .{s}) });
+    //     //     m.addSystemFrameworkPath(.{ .cwd_relative = b.fmt("{s}/System/Library/Frameworks", .{s}) });
+    //     //     m.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/usr/lib", .{s}) });
+    //     // }
+    //     sdl.module("sdl3").addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/usr/include", .{s}) });
+    //     sdl.module("sdl3").addSystemFrameworkPath(.{ .cwd_relative = b.fmt("{s}/System/Library/Frameworks", .{s}) });
+    //     sdl.module("sdl3").addLibraryPath(.{ .cwd_relative = b.fmt("{s}/usr/lib", .{s}) });
+    //     // sdl.module("sdl3").addSystemIncludePath(b.fmt("{s}/usr/include", .{s}));
+    //     // sdl.module("sdl3").addSystemFrameworkPath(b.fmt("{s}/System/Library/Frameworks", .{s}));
+    //     // sdl.module("sdl3").addLibraryPath(b.fmt("{s}/usr/lib", .{s}));
+    //
+    //     sdl.module("sdl3").linkFramework("Cocoa", .{});
+    //     sdl.module("sdl3").linkFramework("IOKit", .{});
+    //     sdl.module("sdl3").linkFramework("ForceFeedback", .{});
+    //     sdl.module("sdl3").linkFramework("CoreVideo", .{});
+    //     sdl.module("sdl3").linkFramework("CoreAudio", .{});
+    //     sdl.module("sdl3").linkFramework("CoreHaptics", .{});
+    //     sdl.module("sdl3").linkFramework("CoreFoundation", .{});
+    //     sdl.module("sdl3").linkFramework("CoreMedia", .{});
+    //     sdl.module("sdl3").linkFramework("CoreGraphics", .{});
+    //     sdl.module("sdl3").linkFramework("Carbon", .{});
+    //     sdl.module("sdl3").linkFramework("Metal", .{});
+    //     sdl.module("sdl3").linkFramework("QuartzCore", .{});
+    //     sdl.module("sdl3").linkFramework("AudioToolbox", .{});
+    //     sdl.module("sdl3").linkFramework("AVFoundation", .{});
+    //     sdl.module("sdl3").linkFramework("Foundation", .{});
+    //     sdl.module("sdl3").linkFramework("GameController", .{});
+    //     sdl.module("sdl3").linkFramework("CoreBluetooth", .{});
+    //     sdl.module("sdl3").linkFramework("UniformTypeIdentifiers", .{});
+    // }
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
     // step). By default the install prefix is `zig-out/` but can be overridden
