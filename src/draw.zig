@@ -7,8 +7,9 @@ const clock = Io.Clock.real;
 const sdl = @import("main.zig").sdl;
 
 const game = @import("game.zig");
-const ObjectPosition = game.ObjectPosition;
 const ObjectRectangles = game.ObjectRectangles;
+// const ObjectPosition = game.ObjectPosition;
+// const ObjectPositions = game.ObjectPositions;
 
 const zpong = @import("zpong");
 const convertSDLError = zpong.convertSDLError;
@@ -22,8 +23,8 @@ const GetError = sdl.SDL_GetError;
 const speed: f32 = 0.007;
 const width: f32 = 0.045;
 
-const window_width_c_int = 1920;
-const window_height_c_int = 1080;
+const window_height_logical = game.window_height_logical;
+const window_width_logical = game.window_width_logical;
 
 const Color = enum {
     red,
@@ -36,10 +37,13 @@ const Color = enum {
     black,
 };
 
-pub fn drawObjects(renderer: ?*sdl.SDL_Renderer, object_rectangles: *const ObjectRectangles) !void {
-    const p1_paddle_rect = object_rectangles.p1_paddle_rect;
-    const p2_paddle_rect = object_rectangles.p2_paddle_rect;
-    const ball_rect = object_rectangles.ball_rect;
+pub fn drawObjects(
+    renderer: ?*sdl.SDL_Renderer,
+    game_state: *const ObjectRectangles,
+) !void {
+    const p1_paddle_rect = game_state.p1_paddle;
+    const p2_paddle_rect = game_state.p2_paddle;
+    const ball_rect = game_state.ball;
 
     // clear screen and draw background
     try drawBackground(renderer);
@@ -73,13 +77,13 @@ fn drawBackground(renderer: ?*Renderer) !void {
     if (!sdl.SDL_RenderClear(renderer)) {
         return convertSDLError(GetError());
     }
-    const window_width_f32: f32 = @floatFromInt(window_width_c_int);
-    const window_height_f32: f32 = @floatFromInt(window_height_c_int);
+    const window_width_f32: f32 = @floatFromInt(window_width_logical);
+    const window_height_f32: f32 = @floatFromInt(window_width_logical);
     const background_rectangle: FRect = .{
         .w = window_width_f32,
         .h = window_height_f32,
-        .x = 0,
-        .y = 0,
+        .x = 0.0,
+        .y = 0.0,
     };
     try drawColorRectangle(renderer, @constCast(&background_rectangle), .white);
     const center_line_width = window_width_f32 / 80.0;
@@ -87,7 +91,7 @@ fn drawBackground(renderer: ?*Renderer) !void {
         .w = center_line_width,
         .h = window_height_f32,
         .x = (window_width_f32 - center_line_width) / 2.0,
-        .y = 0,
+        .y = 0.0,
     };
     try drawColorRectangle(renderer, @constCast(&center_line_rect), .black);
 }
@@ -109,22 +113,4 @@ fn setRenderColorFloat(renderer: ?*Renderer, r: f32, g: f32, b: f32, a: f32) !vo
     if (!SetRenderDrawColorFloat(renderer, r, g, b, a)) {
         return convertSDLError(GetError());
     }
-}
-
-pub fn fillPaddleRect(
-    paddle_pos: ObjectPosition,
-    window_height: f32,
-    paddle_rect: *FRect,
-) void {
-    const paddle_x = paddle_pos.x;
-    const paddle_y = paddle_pos.y;
-    const paddle_width = width * window_height;
-    const paddle_height = 6 * width * window_height;
-
-    paddle_rect.* = FRect{
-        .x = paddle_x,
-        .y = paddle_y,
-        .w = paddle_width,
-        .h = paddle_height,
-    };
 }

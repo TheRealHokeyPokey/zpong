@@ -49,8 +49,9 @@ pub fn main(init: std.process.Init) !void {
 
         switch (config.type) {
             .local_multiplayer => try game.runLocalMultiplayer(io),
-            .client => try game.runClientLoop(io, config),
-            .host => try game.runBasicHostLoop(io, config),
+            // .client => try game.runClientLoop(io, config),
+            // .host => try game.runBasicHostLoop(io, config),
+            else => {},
         }
     } else {
         std.log.err("Invalid config {}, exiting", .{config});
