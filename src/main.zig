@@ -47,12 +47,14 @@ pub fn main(init: std.process.Init) !void {
         try stdout.print("Running with config: {}\n", .{config});
         try stdout.flush();
 
-        switch (config.type) {
-            .local_multiplayer => try game.runLocalMultiplayer(io),
-            // .client => try game.runClientLoop(io, config),
-            // .host => try game.runBasicHostLoop(io, config),
-            else => {},
-        }
+        try game.runGame(io, config.type);
+
+        // switch (config.type) {
+        //     .local_multiplayer => try game.runLocalMultiplayer(io),
+        //     // .client => try game.runClientLoop(io, config),
+        //     // .host => try game.runBasicHostLoop(io, config),
+        //     else => {},
+        // }
     } else {
         std.log.err("Invalid config {}, exiting", .{config});
         @panic("");

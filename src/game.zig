@@ -95,7 +95,7 @@ pub const ObjectRectangles = struct {
     ball: *FRect,
 };
 
-pub fn runLocalMultiplayer(io: Io) !void {
+pub fn runGame(io: Io, game_type: GameType) !void {
     _ = sdl.SDL_SetAppMetadata(
         "Example Renderer Clear",
         "1.0",
@@ -171,6 +171,14 @@ pub fn runLocalMultiplayer(io: Io) !void {
             .{sdl.SDL_GetError()},
         );
     }
+
+    if (game_type == .local_multiplayer) {
+        try runLocal(io, &renderer);
+    }
+}
+
+fn runLocal(io: Io, renderer_ptr: *?*sdl.SDL_Renderer) !void {
+    const renderer = renderer_ptr.*;
 
     const paddle_y_initial: f32 = (window_height_logical - paddle_height) / 2.0;
     var p1_paddle_rect: FRect = .{
@@ -626,31 +634,6 @@ fn getClientMove(reader: *Io.Reader) !Move {
     const move = try reader.takeEnum(Move, .big);
     return move;
 }
-//
-// fn updateP2PaddlePosition(
-//     paddle_pos: *ObjectPosition,
-//     paddle_dy: f32,
-//     window_height: f32,
-//     window_width: f32,
-// ) void {
-//     // update x position
-//     const paddle_width = width * window_height;
-//     paddle_pos.x = window_width - paddle_width;
-//
-//     updatePaddlePosition(paddle_pos, paddle_dy, window_height);
-// }
-
-// fn updatePaddlePosition(
-//     paddle_pos: *ObjectPosition,
-//     paddle_dy: f32,
-//     window_height: f32,
-// ) void {
-//     // update y position, limit to screen border
-//     const next_paddle_y = paddle_pos.y + paddle_dy * window_height;
-//     const paddle_height = 6 * width * window_height;
-//     const paddle_y_limit = window_height - paddle_height;
-//     paddle_pos.y = @max(@min(next_paddle_y, paddle_y_limit), 0.0);
-// }
 
 fn updatePaddle(
     paddle: *FRect,
@@ -661,17 +644,6 @@ fn updatePaddle(
     const paddle_y_limit = window_height_logical - paddle_height;
     paddle.y = @max(@min(next_paddle_y, paddle_y_limit), 0.0);
 }
-
-// fn updateP2Paddle(
-//     paddle: *FRect,
-//     paddle_dy: f32,
-// ) void {
-//     // update x position
-//     const paddle_width = width * window_height_logical;
-//     paddle.x = window_width_logical - paddle_width;
-//
-//     updatePaddle(paddle, paddle_dy);
-// }
 
 fn updateBallPosition(
     ball_pos: *ObjectPosition,
