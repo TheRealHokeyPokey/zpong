@@ -19,13 +19,6 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
 
     const io = init.io;
-    //
-    // var io_threaded: std.Io.Threaded = .init(init.gpa, .{});
-    // defer io_threaded.deinit();
-    // const io = io_threaded.io();
-    //
-    // try io.init(init.gpa, .{.sync_limit});
-    // defer io.deinit();
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout_file_writer: Io.File.Writer = .init(

@@ -8,7 +8,7 @@ const sdl = @import("main.zig").sdl;
 
 const game = @import("game.zig");
 const ObjectRectangles = game.ObjectRectangles;
-// const ObjectPosition = game.ObjectPosition;
+const ObjectPosition = game.ObjectPosition;
 // const ObjectPositions = game.ObjectPositions;
 
 const zpong = @import("zpong");
