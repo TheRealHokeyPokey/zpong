@@ -3,10 +3,6 @@ const std = @import("std");
 const mem = std.mem;
 const Io = std.Io;
 
-pub const network = @import("network.zig");
-// pub const game = @import("game.zig");
-// pub const sdl = @import("sdl3");
-
 pub const SDLError = error{ UnknownError, RenderError };
 
 pub fn convertSDLError(sdl_error: [*:0]const u8) SDLError!void {

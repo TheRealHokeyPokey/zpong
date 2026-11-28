@@ -15,9 +15,7 @@ const ConfigError = game.ConfigError;
 
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
-
     const args = try init.minimal.args.toSlice(arena);
-
     const io = init.io;
 
     var stdout_buffer: [1024]u8 = undefined;
